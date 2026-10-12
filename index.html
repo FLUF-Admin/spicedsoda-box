@@ -1,0 +1,285 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex">
+<title>Spiced Soda Gift Box</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700;900&display=swap">
+<style>
+/* Layout: full-bleed 3D stage, a slim top bar with the name, a bottom control strip. */
+:root{--bg:#ecebe7;--fg:#161616;--muted:#6b6b68;--panel:rgba(255,255,255,.82);--accent:#e8262d;--line:rgba(0,0,0,.08);
+  --display:'Montserrat',Helvetica,Arial,sans-serif;--body:'Montserrat',Helvetica,Arial,sans-serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1b1b1a;--fg:#f2f1ee;--muted:#a3a29d;--panel:rgba(30,30,29,.82);--line:rgba(255,255,255,.1);color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#1b1b1a;--fg:#f2f1ee;--muted:#a3a29d;--panel:rgba(30,30,29,.82);--line:rgba(255,255,255,.1);color-scheme:dark}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);overflow:hidden}
+#stage{position:fixed;inset:0;touch-action:none;cursor:grab}#stage canvas{display:block;width:100%!important;height:100%!important}
+#stage:active{cursor:grabbing}
+header{position:fixed;left:0;right:0;top:0;padding:calc(14px + env(safe-area-inset-top,0px)) 16px 10px;display:flex;align-items:baseline;gap:14px;pointer-events:none;flex-wrap:wrap}
+header h1{margin:0;font-family:var(--display);font-weight:900;font-size:clamp(18px,2.6vw,26px);letter-spacing:-.4px}
+header p{margin:0;color:var(--muted);font-size:13px;font-weight:500}
+.focus{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(66px + env(safe-area-inset-bottom,0px));display:flex;gap:8px;align-items:center;padding:0 16px}
+.focus span{font:700 13px var(--body);color:var(--muted);min-width:48px;text-align:center}
+.ctrl{position:fixed;left:50%;transform:translateX(-50%);bottom:0;padding:10px 16px calc(14px + env(safe-area-inset-bottom,0px));display:flex;gap:8px;flex-wrap:wrap;justify-content:center;max-width:100%;box-sizing:border-box}
+button{font:700 13px var(--body);padding:10px 16px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--fg);cursor:pointer;backdrop-filter:blur(8px);letter-spacing:.2px}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.on{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.legend{position:fixed;right:16px;top:calc(60px + env(safe-area-inset-top,0px));font-size:12px;color:var(--muted);line-height:1.6;font-weight:500;background:var(--panel);padding:10px 12px;border-radius:10px;border:1px solid var(--line);max-width:220px}
+.legend b{color:var(--fg);display:block;font-weight:700;letter-spacing:.8px;text-transform:uppercase;font-size:10.5px;margin-bottom:2px}
+@media (max-width:640px){.legend{display:none}}
+</style>
+</head><body>
+
+<div id="stage"></div>
+<header><h1>Spiced Soda 6-Pack Box</h1><p>Drag to rotate · scroll to zoom · click a can, the cards or the lid</p></header>
+<div class="legend"><b>Packing layout</b>6 × 300 ml cans lying flat. Left: 4 cans stacked front to back. Right: 2 cans turned 90°. Shredded paper fills the square at the back right. Recipe cards sit on the right-hand cans.<br><b style="margin-top:8px">Box</b>Inner 240 × 212 × 58 mm, white litho print outside, kraft inside.</div>
+<div class="focus" id="focus" hidden><button id="prev">‹ Prev</button><span id="count"></span><button id="next">Next ›</button><button id="back" class="on">Put back</button></div>
+<div class="ctrl">
+  <button id="lid" class="on">Toggle lid</button>
+  <button id="vTop">Top view</button>
+  <button id="vFront">Front</button>
+  <button id="vReset">Reset view</button>
+  <button id="spin">Auto-rotate</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+const stage=document.getElementById('stage');
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.05;
+stage.appendChild(renderer.domElement);
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(32,1,1,5000);
+
+// ---------- lighting (soft studio) ----------
+scene.add(new THREE.HemisphereLight(0xffffff,0xb9b3a6,0.75));
+const key=new THREE.DirectionalLight(0xffffff,1.1);key.position.set(260,420,300);key.castShadow=true;
+key.shadow.mapSize.set(2048,2048);const sc=key.shadow.camera;sc.left=-320;sc.right=320;sc.top=320;sc.bottom=-320;sc.near=50;sc.far=1400;key.shadow.bias=-0.0004;key.shadow.radius=3;
+scene.add(key);
+const fill=new THREE.DirectionalLight(0xfff4ea,0.35);fill.position.set(-300,200,-150);scene.add(fill);
+const rim=new THREE.DirectionalLight(0xffffff,0.25);rim.position.set(0,150,-400);scene.add(rim);
+
+// ground
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(4000,4000),new THREE.ShadowMaterial({opacity:0.22}));
+ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
+
+// ---------- dimensions (mm) ----------
+const R=26.5,CH=134;               // can radius / height
+const W=240,D=212,H=58,T=3;        // inner box, wall thickness
+const root=new THREE.Group();scene.add(root);
+root.position.set(-W/2,0,-D/2);     // box inner origin at (0,0,0): x right, z toward viewer (front)
+
+// ---------- textures ----------
+const loader=new THREE.TextureLoader();
+function tex(u){const t=loader.load(u);t.encoding=THREE.sRGBEncoding;t.anisotropy=renderer.capabilities.getMaxAnisotropy();return t;}
+const labelOrig=tex('label_orig.jpg'),labelPink=tex('label_pink.jpg');
+const cardTexs=Array.from({length:11},(_,i)=>tex('card'+(i+1)+'.jpg'));const cardTex=cardTexs[10];
+
+// Printed artwork for the lid and front panel, drawn on canvas after fonts load.
+function makeCanvas(w,h,draw){const c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d');draw(g,w,h);const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;t.anisotropy=8;return t;}
+function stripes(g,x,y,w,h,fadeFrom){
+  const grd=g.createLinearGradient(0,y,0,y+h);grd.addColorStop(0,'rgba(17,17,17,0)');grd.addColorStop(fadeFrom,'rgba(17,17,17,0)');grd.addColorStop(1,'rgba(17,17,17,1)');
+  g.fillStyle=grd;for(let i=x;i<x+w;i+=14){g.fillRect(i,y,2.6,h);}
+}
+function redBar(g,x,y,w,h){const b=g.createLinearGradient(x,0,x+w,0);b.addColorStop(0,'rgba(232,38,45,0)');b.addColorStop(.6,'#f04a3f');b.addColorStop(1,'#e8262d');g.fillStyle=b;g.fillRect(x,y,w,h);}
+function saFlag(g,x,y,w,h){
+  g.save();g.beginPath();g.rect(x,y,w,h);g.clip();
+  g.fillStyle='#de3831';g.fillRect(x,y,w,h/2);g.fillStyle='#002395';g.fillRect(x,y+h/2,w,h/2);
+  const Y=(col,t)=>{g.strokeStyle=col;g.lineWidth=t;g.lineCap='butt';g.lineJoin='miter';g.beginPath();g.moveTo(x,y);g.lineTo(x+w*0.37,y+h/2);g.lineTo(x,y+h);g.stroke();g.beginPath();g.moveTo(x+w*0.37,y+h/2);g.lineTo(x+w,y+h/2);g.stroke();};
+  Y('#fff',h*0.42);Y('#007a4d',h*0.26);
+  g.fillStyle='#ffb612';g.beginPath();g.moveTo(x,y+h*0.18);g.lineTo(x+w*0.3,y+h/2);g.lineTo(x,y+h*0.82);g.closePath();g.fill();
+  g.fillStyle='#000';g.beginPath();g.moveTo(x,y+h*0.27);g.lineTo(x+w*0.21,y+h/2);g.lineTo(x,y+h*0.73);g.closePath();g.fill();
+  g.restore();}
+let lidTex,frontTex,sideTex;
+function buildPrint(){
+  lidTex=makeCanvas(1200,1060,(g,w,h)=>{
+    g.fillStyle='#fff';g.fillRect(0,0,w,h);
+    stripes(g,0,0,w,h,0.42);
+    g.fillStyle='#111';g.font='900 150px Montserrat';g.textBaseline='top';
+    g.fillText('SPICED',70,70);g.fillText('SODA',70,205);
+    redBar(g,72,372,470,30);
+    g.font='500 46px Montserrat';g.fillStyle='#111';g.fillText('the ',72,418);const mw=g.measureText('the ').width;
+    g.font='italic 900 46px Montserrat';g.fillStyle='#e8262d';g.fillText('Mixed Six',72+mw,418);
+    g.font='900 46px Montserrat';g.fillStyle='#111';g.textAlign='right';g.fillText('CRISP.',w-60,64);
+    g.font='500 22px Montserrat';g.fillStyle='#222';['3 Original · 3 Pink Lemonade','6 × 300 ml · 0 calories · 0 sugar','recipe cards inside'].forEach((s,i)=>g.fillText(s,w-60,130+i*32));
+    g.textAlign='left';g.font='700 22px Montserrat';const pw=g.measureText('PROUDLY SOUTH AFRICAN').width;
+    g.fillStyle='#fff';g.fillRect(70,h-92,pw+28+40,40);g.fillStyle='#111';g.fillText('PROUDLY SOUTH AFRICAN',84,h-82);
+    saFlag(g,84+pw+12,h-83,30,20);
+  });
+  frontTex=makeCanvas(1200,310,(g,w,h)=>{
+    g.fillStyle='#fff';g.fillRect(0,0,w,h);
+    g.globalAlpha=.14;stripes(g,0,0,w,h,0);g.globalAlpha=1;
+    g.fillStyle='#111';g.font='900 92px Montserrat';g.textBaseline='top';g.fillText('SPICED SODA',60,70);
+    let x=62;const y=182;
+    g.font='500 34px Montserrat';g.fillStyle='#111';g.fillText('Sparkling drink ',x,y);x+=g.measureText('Sparkling drink ').width;
+    g.font='italic 900 34px Montserrat';g.fillStyle='#e8262d';g.fillText('with a twist',x,y);x+=g.measureText('with a twist').width;
+    g.font='500 34px Montserrat';g.fillStyle='#111';g.fillText('  ·  www.spicedsoda.com',x,y);
+    g.textAlign='right';g.font='900 64px Montserrat';g.fillText('CRISP.',w-60,96);
+  });
+  sideTex=makeCanvas(1060,310,(g,w,h)=>{
+    g.fillStyle='#fff';g.fillRect(0,0,w,h);g.globalAlpha=.14;stripes(g,0,0,w,h,0);g.globalAlpha=1;
+    g.fillStyle='#111';g.font='700 40px Montserrat';g.textBaseline='middle';g.fillText('3 × Original  ·  3 × Pink Lemonade',60,h/2);
+  });
+  buildBox();
+}
+
+// ---------- materials ----------
+const kraft=new THREE.MeshStandardMaterial({color:0xc8a877,roughness:.95});
+const kraftDark=new THREE.MeshStandardMaterial({color:0xb28f5f,roughness:.95});
+const white=new THREE.MeshStandardMaterial({color:0xf7f7f5,roughness:.6});
+const metal=new THREE.MeshStandardMaterial({color:0xd9d9d9,metalness:.9,roughness:.32});
+const metalDark=new THREE.MeshStandardMaterial({color:0xa9a9a9,metalness:.9,roughness:.4});
+
+// ---------- box ----------
+const lid=new THREE.Group();lid.userData.kind='lid';const cans=[];let cardStack=null;
+function panel(w,h,d,mats,x,y,z){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mats);m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;return m;}
+function buildBox(){
+  const ow=W+2*T,od=D+2*T,oh=H+T;
+  const printFront=new THREE.MeshStandardMaterial({map:frontTex,roughness:.55});
+  const printSide=new THREE.MeshStandardMaterial({map:sideTex,roughness:.55});
+  const printLid=new THREE.MeshStandardMaterial({map:lidTex,roughness:.5});
+  // base (floor)
+  root.add(panel(ow,T,od,[white,white,white,kraftDark,white,white],W/2,-T/2,D/2));
+  // walls: material order +x,-x,+y,-y,+z,-z
+  root.add(panel(ow,H,T,[white,white,white,white,printFront,kraft],W/2,H/2,D+T/2));   // front wall (z=D)
+  root.add(panel(ow,H,T,[white,white,white,white,kraft,printSide],W/2,H/2,-T/2));      // back wall
+  root.add(panel(T,H,D,[kraft,printSide,white,white,white,white],-T/2,H/2,D/2));      // left wall
+  root.add(panel(T,H,D,[printSide,kraft,white,white,white,white],W+T/2,H/2,D/2));     // right wall
+  // lid: hinged along the back edge (z = -T). Top plate covers the wall tops; a skirt on the front and both sides drops inside the walls.
+  lid.position.set(0,H,-T);
+  const SK=38;
+  const top=panel(ow,T,od,[white,white,printLid,kraft,white,white],W/2,T/2,od/2);
+  const skirtF=panel(W-2,SK,T,[white,white,white,white,white,kraft],W/2,-SK/2,D+T/2-1);
+  const skirtL=panel(T,SK,D-2,[white,kraft,white,white,white,white],T/2+1,-SK/2,T+D/2);
+  const skirtR=panel(T,SK,D-2,[kraft,white,white,white,white,white],W-T/2-1,-SK/2,T+D/2);
+  lid.add(top,skirtF,skirtL,skirtR);root.add(lid);
+}
+
+// ---------- cans ----------
+function can(label){
+  const g=new THREE.Group();
+  const body=new THREE.Mesh(new THREE.CylinderGeometry(R,R,CH-18,64,1,true),new THREE.MeshStandardMaterial({map:label,roughness:.42,metalness:.08}));
+  body.castShadow=true;body.receiveShadow=true;g.add(body);
+  const neckT=new THREE.Mesh(new THREE.CylinderGeometry(R-3.5,R,9,64,1,true),metal);neckT.position.y=(CH-18)/2+4.5;g.add(neckT);
+  const neckB=new THREE.Mesh(new THREE.CylinderGeometry(R,R-3.5,9,64,1,true),metal);neckB.position.y=-(CH-18)/2-4.5;g.add(neckB);
+  const capT=new THREE.Mesh(new THREE.CylinderGeometry(R-3.5,R-3.5,1.2,64),metal);capT.position.y=CH/2-0.6;g.add(capT);
+  const ringT=new THREE.Mesh(new THREE.TorusGeometry(R-4.2,1,12,64),metalDark);ringT.rotation.x=Math.PI/2;ringT.position.y=CH/2;g.add(ringT);
+  const lidIn=new THREE.Mesh(new THREE.CylinderGeometry(R-6,R-6,.6,64),metalDark);lidIn.position.y=CH/2-1.1;g.add(lidIn);
+  const tab=new THREE.Mesh(new THREE.BoxGeometry(10,.8,18),metal);tab.position.set(0,CH/2-.5,-2);g.add(tab);
+  const capB=new THREE.Mesh(new THREE.CylinderGeometry(R-3.5,R-3.5,1.2,64),metalDark);capB.position.y=-CH/2+0.6;g.add(capB);
+  g.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
+  return g;
+}
+// Left column: 4 cans lying with axis along x, stacked front to back. Right column: 2 cans with axis along z.
+const leftLabels=[labelOrig,labelPink,labelOrig,labelPink];
+for(let i=0;i<4;i++){const c=can(leftLabels[i]);c.rotation.y=(i%2?0.9:-0.6)+Math.PI;const o=new THREE.Group();o.add(c);o.rotation.z=Math.PI/2;o.position.set(CH/2,R,R+i*2*R);o.userData.kind='can';root.add(o);cans.push(o);}
+const rightLabels=[labelPink,labelOrig];
+for(let i=0;i<2;i++){const c=can(rightLabels[i]);c.rotation.y=(i?0.5:-0.8)+Math.PI;const o=new THREE.Group();o.add(c);o.rotation.x=Math.PI/2;o.position.set(CH+R+i*2*R,R,D-CH/2);o.userData.kind='can';root.add(o);cans.push(o);}
+
+// recipe cards stacked on the right-hand cans (A7: 74 × 105 mm)
+cardStack=new THREE.Group();cardStack.userData.kind='cards';
+const cardMat=new THREE.MeshStandardMaterial({map:cardTex,roughness:.8});
+for(let i=0;i<6;i++){const m=new THREE.Mesh(new THREE.BoxGeometry(74,0.6,105),[white,white,cardMat,white,white,white]);
+  m.position.set(0,0.3+i*0.6,0);m.rotation.y=(i-2.5)*0.05;m.castShadow=true;m.receiveShadow=true;cardStack.add(m);}
+cardStack.position.set(CH+2*R,2*R,D-CH/2-6);root.add(cardStack);
+
+// shredded paper in the back-right square (x: 134..240, z: 0..78)
+(function(){
+  const n=900,geo=new THREE.BoxGeometry(1.6,0.25,22),mat=new THREE.MeshStandardMaterial({color:0xff5a1f,roughness:.95});
+  const im=new THREE.InstancedMesh(geo,mat,n);const o=new THREE.Object3D();
+  const x0=CH+2,x1=W-2,z0=2,z1=D-CH-2;
+  for(let i=0;i<n;i++){
+    o.position.set(x0+Math.random()*(x1-x0),2+Math.random()*38,z0+Math.random()*(z1-z0));
+    o.rotation.set((Math.random()-.5)*0.9,Math.random()*Math.PI*2,(Math.random()-.5)*0.9);
+    o.updateMatrix();im.setMatrixAt(i,o.matrix);
+  }
+  im.castShadow=true;im.receiveShadow=true;root.add(im);
+})();
+
+// ---------- camera orbit (custom, no extra library) ----------
+let theta=-0.55,phi=0.95,dist=700;const target=new THREE.Vector3(0,30,0);
+let autoSpin=false,targetPhi=null,targetTheta=null,targetDist=null;
+function place(){const p=Math.max(0.08,Math.min(1.52,phi));camera.position.set(target.x+dist*Math.sin(p)*Math.sin(theta),target.y+dist*Math.cos(p),target.z+dist*Math.sin(p)*Math.cos(theta));camera.lookAt(target);}
+
+// ---------- focus (one object at a time) ----------
+const focusGroup=new THREE.Group();scene.add(focusGroup);
+let focus=null;             // {kind, obj, saved:{pos,rot}, spinY, tiltX}
+let cardIdx=0;
+const cardPlane=new THREE.Mesh(new THREE.BoxGeometry(74,105,0.6),[white,white,white,white,new THREE.MeshStandardMaterial({map:cardTexs[0],roughness:.8}),white]);
+cardPlane.visible=false;focusGroup.add(cardPlane);
+const focusUI=document.getElementById('focus'),countEl=document.getElementById('count'),prevBtn=document.getElementById('prev'),nextBtn=document.getElementById('next');
+function showCard(i){cardIdx=(i+11)%11;cardPlane.material[4].map=cardTexs[cardIdx];cardPlane.material[4].needsUpdate=true;countEl.textContent=(cardIdx+1)+' / 11';}
+function setFocus(kind,obj){
+  if(focus)clearFocus();
+  focus={kind,obj,spinY:0,tiltX:0.15,saved:{pos:obj.position.clone(),rot:obj.rotation.clone()}};
+  if(kind==='can'){focusGroup.add(obj);obj.position.set(0,0,0);obj.rotation.set(0,0,0);}
+  else{obj.visible=false;cardPlane.visible=true;showCard(cardIdx);}
+  prevBtn.hidden=nextBtn.hidden=countEl.hidden=(kind!=='cards');
+  focusUI.hidden=false;autoSpin=false;spinBtn.classList.remove('on');
+}
+function clearFocus(){
+  if(!focus)return;const {kind,obj,saved}=focus;
+  if(kind==='can'){root.add(obj);obj.position.copy(saved.pos);obj.rotation.copy(saved.rot);}
+  else{obj.visible=true;cardPlane.visible=false;}
+  focus=null;focusUI.hidden=true;
+}
+prevBtn.onclick=()=>showCard(cardIdx-1);nextBtn.onclick=()=>showCard(cardIdx+1);
+document.getElementById('back').onclick=clearFocus;
+addEventListener('keydown',e=>{if(e.key==='Escape')clearFocus();if(focus&&focus.kind==='cards'){if(e.key==='ArrowRight')showCard(cardIdx+1);if(e.key==='ArrowLeft')showCard(cardIdx-1);}});
+
+// picking
+const ray=new THREE.Raycaster(),ndc=new THREE.Vector2();
+function kindOf(o){while(o){if(o.userData&&o.userData.kind)return o;o=o.parent;}return null;}
+function pick(x,y){
+  const r=renderer.domElement.getBoundingClientRect();ndc.set(((x-r.left)/r.width)*2-1,-((y-r.top)/r.height)*2+1);
+  ray.setFromCamera(ndc,camera);
+  const pickables=focus?[focus.kind==='can'?focus.obj:cardPlane]:[...cans,cardStack,lid];
+  const hits=ray.intersectObjects(pickables,true);
+  if(!hits.length){if(focus)clearFocus();return;}
+  const tgt=focus?(focus.kind==='can'?focus.obj:cardPlane):kindOf(hits[0].object);
+  if(focus){if(focus.kind==='cards')showCard(cardIdx+1);else clearFocus();return;}
+  const k=tgt.userData.kind;
+  if(k==='lid'){lidOpen=!lidOpen;lidBtn.classList.toggle('on',lidOpen);}
+  else if(k==='can')setFocus('can',tgt);
+  else if(k==='cards')setFocus('cards',tgt);
+}
+
+let drag=null,moved=0;
+stage.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY,sx:e.clientX,sy:e.clientY};moved=0;stage.setPointerCapture(e.pointerId);targetPhi=targetTheta=targetDist=null;});
+stage.addEventListener('pointermove',e=>{if(!drag)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;moved+=Math.abs(dx)+Math.abs(dy);
+  if(focus&&focus.kind==='can'){focus.spinY+=dx*0.012;focus.tiltX=Math.max(-1.2,Math.min(1.2,focus.tiltX+dy*0.008));}
+  else if(!focus){theta-=dx*0.006;phi-=dy*0.006;phi=Math.max(0.08,Math.min(1.52,phi));}
+  drag={...drag,x:e.clientX,y:e.clientY};});
+stage.addEventListener('pointerup',e=>{if(drag&&moved<6)pick(e.clientX,e.clientY);drag=null;});
+stage.addEventListener('pointercancel',()=>drag=null);
+stage.addEventListener('wheel',e=>{e.preventDefault();if(focus)return;dist=Math.max(300,Math.min(1400,dist*(1+e.deltaY*0.0012)));},{passive:false});
+let pinch=null;
+stage.addEventListener('touchstart',e=>{if(e.touches.length===2)pinch=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);},{passive:true});
+stage.addEventListener('touchmove',e=>{if(e.touches.length===2&&pinch&&!focus){const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);dist=Math.max(300,Math.min(1400,dist*pinch/d));pinch=d;drag=null;}},{passive:true});
+
+// ---------- UI ----------
+let lidOpen=true,lidAngle=-1.95;
+const LID_OPEN=-1.95;
+const lidBtn=document.getElementById('lid'),spinBtn=document.getElementById('spin');
+const views={vTop:{phi:0.12,theta:0,dist:620},vFront:{phi:1.35,theta:0,dist:640},vReset:{phi:0.95,theta:-0.55,dist:700}};
+function setView(k){clearFocus();const v=views[k];targetPhi=v.phi;targetTheta=v.theta;targetDist=v.dist;autoSpin=false;spinBtn.classList.remove('on');}
+Object.keys(views).forEach(k=>document.getElementById(k).onclick=()=>setView(k));
+lidBtn.onclick=()=>{lidOpen=!lidOpen;lidBtn.classList.toggle('on',lidOpen);};
+spinBtn.onclick=()=>{autoSpin=!autoSpin;spinBtn.classList.toggle('on',autoSpin);};
+
+function resize(){const w=stage.clientWidth,h=stage.clientHeight;renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();}
+addEventListener('resize',resize);resize();
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+function frame(){
+  const goal=lidOpen?LID_OPEN:0;lidAngle+=(goal-lidAngle)*(reduce?1:0.08);lid.rotation.x=lidAngle;
+  if(targetPhi!==null){phi+=(targetPhi-phi)*0.1;theta+=(targetTheta-theta)*0.1;if(targetDist!==null)dist+=(targetDist-dist)*0.1;if(Math.abs(targetPhi-phi)<0.002&&Math.abs(targetTheta-theta)<0.002){targetPhi=targetTheta=targetDist=null;}}
+  if(autoSpin&&!drag)theta+=0.004;
+  place();
+  if(focus){const dir=new THREE.Vector3();camera.getWorldDirection(dir);focusGroup.position.copy(camera.position).add(dir.multiplyScalar(focus.kind==='can'?330:260));focusGroup.quaternion.copy(camera.quaternion);
+    if(focus.kind==='can'){if(!drag&&!reduce)focus.spinY+=0.01;focus.obj.rotation.set(focus.tiltX,focus.spinY,0);}}
+  renderer.render(scene,camera);requestAnimationFrame(frame);
+}
+document.fonts.ready.then(buildPrint,buildPrint);
+frame();
+})();
+</script>
+</body></html>
