@@ -113,7 +113,7 @@ function buildPrint(){
     g.font='500 36px Montserrat';g.fillStyle=v.subCol;g.fillText(v.sub,72,418);
     g.font='900 46px Montserrat';g.fillStyle='#111';g.fillText('Box of 6',72,476);
     g.font='900 46px Montserrat';g.fillStyle='#111';g.textAlign='right';g.fillText('CRISP.',w-60,64);
-    g.font='500 22px Montserrat';g.fillStyle='#222';['6 × 300 ml','0 calories · 0 sugar'].forEach((s,i)=>g.fillText(s,w-60,130+i*32));
+    g.font='500 22px Montserrat';g.fillStyle='#222';(variant==='orig'?['6 × 300 ml','0 calories · 0 sugar']:['6 × 300 ml']).forEach((s,i)=>g.fillText(s,w-60,130+i*32));
     g.textAlign='left';g.font='700 22px Montserrat';const pw=g.measureText('PROUDLY SOUTH AFRICAN').width;
     g.fillStyle='#fff';g.fillRect(70,h-92,pw+28+40,40);g.fillStyle='#111';g.fillText('PROUDLY SOUTH AFRICAN',84,h-82);
     saFlag(g,84+pw+12,h-83,30,20);
