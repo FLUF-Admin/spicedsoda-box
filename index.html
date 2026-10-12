@@ -15,6 +15,7 @@ header{position:fixed;left:0;right:0;top:0;padding:calc(14px + env(safe-area-ins
 header h1{margin:0;font-family:var(--display);font-weight:900;font-size:clamp(18px,2.6vw,26px);letter-spacing:-.4px}
 header p{margin:0;color:var(--muted);font-size:13px;font-weight:500}
 .focus{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(66px + env(safe-area-inset-bottom,0px));display:flex;gap:8px;align-items:center;padding:0 16px}
+.variants{position:fixed;left:16px;top:calc(60px + env(safe-area-inset-top,0px));display:flex;gap:6px;flex-wrap:wrap;max-width:60vw}
 .focus span{font:700 13px var(--body);color:var(--muted);min-width:48px;text-align:center}
 .ctrl{position:fixed;left:50%;transform:translateX(-50%);bottom:0;padding:10px 16px calc(14px + env(safe-area-inset-bottom,0px));display:flex;gap:8px;flex-wrap:wrap;justify-content:center;max-width:100%;box-sizing:border-box}
 button{font:700 13px var(--body);padding:10px 16px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--fg);cursor:pointer;backdrop-filter:blur(8px);letter-spacing:.2px}
@@ -27,9 +28,10 @@ button.on{background:var(--fg);color:var(--bg);border-color:var(--fg)}
 </head><body>
 
 <div id="stage"></div>
-<header><h1>Spiced Soda 6-Pack Box</h1><p>Drag to rotate · scroll to zoom · click a can, the cards or the lid</p></header>
-<div class="legend"><b>Packing layout</b>6 × 300 ml cans lying flat. Left: 4 cans stacked front to back. Right: 2 cans turned 90°. Shredded paper fills the square at the back right. Recipe cards sit on the right-hand cans.<br><b style="margin-top:8px">Box</b>Inner 240 × 212 × 58 mm, white litho print outside, kraft inside.</div>
+<header><h1>Spiced Soda Box of 6</h1><p>Drag to rotate · scroll to zoom · click a can, the cards or the lid</p></header>
+<div class="legend"><b>Packing layout</b>6 × 300 ml cans lying flat. Left: 4 cans stacked front to back. Right: 2 cans turned 90°. Shredded paper fills the square at the back right. Recipe cards sit on the right-hand cans.<br><b style="margin-top:8px">Variants</b>Mixed (3 + 3), Original only, Pink Lemonade only.<br><b style="margin-top:8px">Box</b>Inner 240 × 212 × 58 mm, white litho print outside, kraft inside.</div>
 <div class="focus" id="focus" hidden><button id="prev">‹ Prev</button><span id="count"></span><button id="next">Next ›</button><button id="back" class="on">Put back</button></div>
+<div class="variants"><button id="varMixed" class="on">Mixed</button><button id="varOrig">Original</button><button id="varPink">Pink Lemonade</button></div>
 <div class="ctrl">
   <button id="lid" class="on">Toggle lid</button>
   <button id="vTop">Top view</button>
@@ -90,44 +92,53 @@ function saFlag(g,x,y,w,h){
   g.fillStyle='#000';g.beginPath();g.moveTo(x,y+h*0.27);g.lineTo(x+w*0.21,y+h/2);g.lineTo(x,y+h*0.73);g.closePath();g.fill();
   g.restore();}
 let lidTex,frontTex,sideTex;
+const VAR={
+  mixed:{stripe:'#111',band:['#e8262d','#e5177a'],sub:'Original & Pink Lemonade',subCol:'#111'},
+  orig:{stripe:'#111',band:['#e8262d','#e8262d'],sub:'Sparkling drink with a twist',subCol:'#111'},
+  pink:{stripe:'#e5177a',band:['#e5177a','#e5177a'],sub:'Sparkling lemon drink · Pink Lemonade',subCol:'#e5177a'}
+};
+let variant='mixed';
+function stripesC(g,x,y,w,h,fadeFrom,col){
+  const grd=g.createLinearGradient(0,y,0,y+h);grd.addColorStop(0,'rgba(0,0,0,0)');grd.addColorStop(fadeFrom,'rgba(0,0,0,0)');grd.addColorStop(1,col);
+  g.fillStyle=grd;for(let i=x;i<x+w;i+=14){g.fillRect(i,y,2.6,h);}
+}
 function buildPrint(){
+  const v=VAR[variant];
   lidTex=makeCanvas(1200,1060,(g,w,h)=>{
     g.fillStyle='#fff';g.fillRect(0,0,w,h);
-    stripes(g,0,0,w,h,0.42);
+    stripesC(g,0,0,w,h,0.42,v.stripe);
     g.fillStyle='#111';g.font='900 150px Montserrat';g.textBaseline='top';
     g.fillText('SPICED',70,70);g.fillText('SODA',70,205);
-    redBar(g,72,372,470,30);
-    g.font='500 46px Montserrat';g.fillStyle='#111';g.fillText('the ',72,418);const mw=g.measureText('the ').width;
-    g.font='italic 900 46px Montserrat';g.fillStyle='#e8262d';g.fillText('Mixed Six',72+mw,418);
+    const b=g.createLinearGradient(72,0,542,0);b.addColorStop(0,'rgba(255,255,255,0)');b.addColorStop(.55,v.band[0]);b.addColorStop(1,v.band[1]);g.fillStyle=b;g.fillRect(72,372,470,30);
+    g.font='500 36px Montserrat';g.fillStyle=v.subCol;g.fillText(v.sub,72,418);
+    g.font='900 46px Montserrat';g.fillStyle='#111';g.fillText('Box of 6',72,476);
     g.font='900 46px Montserrat';g.fillStyle='#111';g.textAlign='right';g.fillText('CRISP.',w-60,64);
-    g.font='500 22px Montserrat';g.fillStyle='#222';['3 Original · 3 Pink Lemonade','6 × 300 ml · 0 calories · 0 sugar','recipe cards inside'].forEach((s,i)=>g.fillText(s,w-60,130+i*32));
+    g.font='500 22px Montserrat';g.fillStyle='#222';['6 × 300 ml','0 calories · 0 sugar'].forEach((s,i)=>g.fillText(s,w-60,130+i*32));
     g.textAlign='left';g.font='700 22px Montserrat';const pw=g.measureText('PROUDLY SOUTH AFRICAN').width;
     g.fillStyle='#fff';g.fillRect(70,h-92,pw+28+40,40);g.fillStyle='#111';g.fillText('PROUDLY SOUTH AFRICAN',84,h-82);
     saFlag(g,84+pw+12,h-83,30,20);
   });
   frontTex=makeCanvas(1200,310,(g,w,h)=>{
-    g.fillStyle='#fff';g.fillRect(0,0,w,h);
-    g.globalAlpha=.14;stripes(g,0,0,w,h,0);g.globalAlpha=1;
-    g.fillStyle='#111';g.font='900 92px Montserrat';g.textBaseline='top';g.fillText('SPICED SODA',60,70);
-    let x=62;const y=182;
-    g.font='500 34px Montserrat';g.fillStyle='#111';g.fillText('Sparkling drink ',x,y);x+=g.measureText('Sparkling drink ').width;
-    g.font='italic 900 34px Montserrat';g.fillStyle='#e8262d';g.fillText('with a twist',x,y);x+=g.measureText('with a twist').width;
-    g.font='500 34px Montserrat';g.fillStyle='#111';g.fillText('  ·  www.spicedsoda.com',x,y);
-    g.textAlign='right';g.font='900 64px Montserrat';g.fillText('CRISP.',w-60,96);
+    const b=g.createLinearGradient(0,0,w,0);b.addColorStop(0,v.band[0]);b.addColorStop(1,v.band[1]);g.fillStyle=b;g.fillRect(0,0,w,h);
+    g.fillStyle='#fff';g.font='900 112px Montserrat';g.textBaseline='middle';g.textAlign='left';g.fillText('SPICED SODA',60,h/2+6);
+    g.font='900 48px Montserrat';g.textAlign='right';g.fillText('CRISP.',w-60,h/2-30);
+    g.font='700 26px Montserrat';g.fillText('BOX OF 6 · 300 ml',w-60,h/2+30);
   });
   sideTex=makeCanvas(1060,310,(g,w,h)=>{
-    g.fillStyle='#fff';g.fillRect(0,0,w,h);g.globalAlpha=.14;stripes(g,0,0,w,h,0);g.globalAlpha=1;
-    g.fillStyle='#111';g.font='700 40px Montserrat';g.textBaseline='middle';g.fillText('3 × Original  ·  3 × Pink Lemonade',60,h/2);
+    g.fillStyle='#fff';g.fillRect(0,0,w,h);g.globalAlpha=.14;stripesC(g,0,0,w,h,0,v.stripe);g.globalAlpha=1;
+    g.fillStyle='#111';g.font='900 44px Montserrat';g.textBaseline='middle';g.fillText('SPICED SODA',60,h/2-26);
+    g.font='500 30px Montserrat';g.fillStyle=v.subCol;g.fillText(v.sub,60,h/2+30);
   });
-  buildBox();
+  if(printMats){printMats.lid.map=lidTex;printMats.front.map=frontTex;printMats.side.map=sideTex;[printMats.lid,printMats.front,printMats.side].forEach(m=>m.needsUpdate=true);}
+  else buildBox();
 }
-
+let printMats=null;
 // ---------- materials ----------
 const kraft=new THREE.MeshStandardMaterial({color:0xc8a877,roughness:.95});
 const kraftDark=new THREE.MeshStandardMaterial({color:0xb28f5f,roughness:.95});
 const white=new THREE.MeshStandardMaterial({color:0xf7f7f5,roughness:.6});
-const metal=new THREE.MeshStandardMaterial({color:0xd9d9d9,metalness:.9,roughness:.32});
-const metalDark=new THREE.MeshStandardMaterial({color:0xa9a9a9,metalness:.9,roughness:.4});
+const metal=new THREE.MeshStandardMaterial({color:0xe4e4e4,metalness:.85,roughness:.28});
+const metalDark=new THREE.MeshStandardMaterial({color:0xc2c2c2,metalness:.85,roughness:.38});
 
 // ---------- box ----------
 const lid=new THREE.Group();lid.userData.kind='lid';const cans=[];let cardStack=null;
@@ -137,6 +148,7 @@ function buildBox(){
   const printFront=new THREE.MeshStandardMaterial({map:frontTex,roughness:.55});
   const printSide=new THREE.MeshStandardMaterial({map:sideTex,roughness:.55});
   const printLid=new THREE.MeshStandardMaterial({map:lidTex,roughness:.5});
+  printMats={front:printFront,side:printSide,lid:printLid};
   // base (floor)
   root.add(panel(ow,T,od,[white,white,white,kraftDark,white,white],W/2,-T/2,D/2));
   // walls: material order +x,-x,+y,-y,+z,-z
@@ -156,17 +168,18 @@ function buildBox(){
 
 // ---------- cans ----------
 function can(label){
-  const g=new THREE.Group();
-  const body=new THREE.Mesh(new THREE.CylinderGeometry(R,R,CH-18,64,1,true),new THREE.MeshStandardMaterial({map:label,roughness:.42,metalness:.08}));
-  body.castShadow=true;body.receiveShadow=true;g.add(body);
-  const neckT=new THREE.Mesh(new THREE.CylinderGeometry(R-3.5,R,9,64,1,true),metal);neckT.position.y=(CH-18)/2+4.5;g.add(neckT);
-  const neckB=new THREE.Mesh(new THREE.CylinderGeometry(R,R-3.5,9,64,1,true),metal);neckB.position.y=-(CH-18)/2-4.5;g.add(neckB);
-  const capT=new THREE.Mesh(new THREE.CylinderGeometry(R-3.5,R-3.5,1.2,64),metal);capT.position.y=CH/2-0.6;g.add(capT);
-  const ringT=new THREE.Mesh(new THREE.TorusGeometry(R-4.2,1,12,64),metalDark);ringT.rotation.x=Math.PI/2;ringT.position.y=CH/2;g.add(ringT);
-  const lidIn=new THREE.Mesh(new THREE.CylinderGeometry(R-6,R-6,.6,64),metalDark);lidIn.position.y=CH/2-1.1;g.add(lidIn);
-  const tab=new THREE.Mesh(new THREE.BoxGeometry(10,.8,18),metal);tab.position.set(0,CH/2-.5,-2);g.add(tab);
-  const capB=new THREE.Mesh(new THREE.CylinderGeometry(R-3.5,R-3.5,1.2,64),metalDark);capB.position.y=-CH/2+0.6;g.add(capB);
+  // 300 ml sleek can: Ø53 body, 134 tall. Label covers the body; short shoulder taper to a Ø50 end; thin bright seam rims.
+  const g=new THREE.Group();const BODY=CH-13;
+  const body=new THREE.Mesh(new THREE.CylinderGeometry(R,R,BODY,72,1,true),new THREE.MeshStandardMaterial({map:label,roughness:.38,metalness:.1}));g.add(body);
+  const shoulder=new THREE.Mesh(new THREE.CylinderGeometry(R-2.2,R,7,72,1,true),metal);shoulder.position.y=BODY/2+3.5;g.add(shoulder);
+  const rimT=new THREE.Mesh(new THREE.TorusGeometry(R-2.4,1.1,10,72),metal);rimT.rotation.x=Math.PI/2;rimT.position.y=BODY/2+7;g.add(rimT);
+  const endT=new THREE.Mesh(new THREE.CylinderGeometry(R-3.3,R-3.3,0.8,72),metalDark);endT.position.y=BODY/2+6.4;g.add(endT);
+  const ring=new THREE.Mesh(new THREE.TorusGeometry(R-8,0.7,8,72),metal);ring.rotation.x=Math.PI/2;ring.position.y=BODY/2+6.9;g.add(ring);
+  const tab=new THREE.Mesh(new THREE.BoxGeometry(9,0.6,16),metal);tab.position.set(0,BODY/2+7.1,-3);g.add(tab);
+  const chime=new THREE.Mesh(new THREE.CylinderGeometry(R,R-2.5,4,72,1,true),metal);chime.position.y=-BODY/2-2;g.add(chime);
+  const base=new THREE.Mesh(new THREE.CylinderGeometry(R-2.5,R-2.5,1,72),metalDark);base.position.y=-BODY/2-3.5;g.add(base);
   g.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
+  g.userData.body=body;
   return g;
 }
 // Left column: 4 cans lying with axis along x, stacked front to back. Right column: 2 cans with axis along z.
@@ -255,6 +268,13 @@ stage.addEventListener('wheel',e=>{e.preventDefault();if(focus)return;dist=Math.
 let pinch=null;
 stage.addEventListener('touchstart',e=>{if(e.touches.length===2)pinch=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);},{passive:true});
 stage.addEventListener('touchmove',e=>{if(e.touches.length===2&&pinch&&!focus){const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);dist=Math.max(300,Math.min(1400,dist*pinch/d));pinch=d;drag=null;}},{passive:true});
+
+// ---------- variants ----------
+function applyVariant(v){variant=v;const labs={mixed:[labelOrig,labelPink,labelOrig,labelPink,labelPink,labelOrig],orig:Array(6).fill(labelOrig),pink:Array(6).fill(labelPink)}[v];
+  cans.forEach((o,i)=>{const b=o.children[0].userData.body;b.material.map=labs[i];b.material.needsUpdate=true;});
+  if(lidTex)buildPrint();
+  ['varMixed','varOrig','varPink'].forEach(id=>document.getElementById(id).classList.toggle('on',({varMixed:'mixed',varOrig:'orig',varPink:'pink'})[id]===v));}
+document.getElementById('varMixed').onclick=()=>applyVariant('mixed');document.getElementById('varOrig').onclick=()=>applyVariant('orig');document.getElementById('varPink').onclick=()=>applyVariant('pink');
 
 // ---------- UI ----------
 let lidOpen=true,lidAngle=-1.95;
